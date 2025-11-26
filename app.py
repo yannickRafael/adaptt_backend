@@ -1,0 +1,266 @@
+from flask import Flask, jsonify, request
+from flasgger import Swagger
+import data_persistence
+import os
+
+app = Flask(__name__)
+swagger = Swagger(app)
+
+@app.route('/api/projects', methods=['GET'])
+def get_projects():
+    """
+    Get all projects
+    ---
+    responses:
+      200:
+        description: A list of projects
+        schema:
+          type: array
+          items:
+            type: object
+            properties:
+              project_id:
+                type: string
+              project_name:
+                type: string
+              status:
+                type: string
+              last_sync:
+                type: string
+    """
+    projects = data_persistence.get_all_projects()
+    return jsonify(projects)
+
+@app.route('/api/projects/<project_id>', methods=['GET'])
+def get_project_details(project_id):
+    """
+    Get project details
+    ---
+    parameters:
+      - name: project_id
+        in: path
+        type: string
+        required: true
+        description: The ID of the project
+    responses:
+      200:
+        description: Project details
+      404:
+        description: Project not found
+    """
+    project = data_persistence.get_raw_project_data(project_id)
+    if project:
+        return jsonify(project)
+    return jsonify({'error': 'Project not found'}), 404
+
+@app.route('/api/projects/<project_id>/documents', methods=['GET'])
+def get_project_documents(project_id):
+    """
+    Get project documents
+    ---
+    parameters:
+      - name: project_id
+        in: path
+        type: string
+        required: true
+        description: The ID of the project
+    responses:
+      200:
+        description: List of project documents
+    """
+    documents = data_persistence.get_project_documents(project_id)
+    return jsonify(documents)
+
+@app.route('/api/locations', methods=['GET'])
+def get_locations():
+    """
+    Get all locations
+    ---
+    responses:
+      200:
+        description: A list of locations
+        schema:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              name:
+                type: string
+              region:
+                type: string
+              country:
+                type: string
+    """
+    locations = data_persistence.get_all_locations()
+    return jsonify(locations)
+
+@app.route('/api/users/register', methods=['POST'])
+def register_user():
+    """
+    Register a new user
+    ---
+    parameters:
+      - name: body
+        in: body
+        required: true
+        schema:
+          type: object
+          required:
+            - name
+            - phone_number
+            - region_id
+          properties:
+            name:
+              type: string
+              description: User's full name
+            phone_number:
+              type: string
+              description: Mozambican phone number (+258 XX XXX XXXX or 8X/9X XXXXXXX)
+            region_id:
+              type: string
+              description: Region ID from locations table
+    responses:
+      201:
+        description: User registered successfully
+      400:
+        description: Validation error
+    """
+    data = request.get_json()
+    
+    if not data:
+        return jsonify({'error': 'Dados não fornecidos'}), 400
+    
+    name = data.get('name')
+    phone_number = data.get('phone_number')
+    region_id = data.get('region_id')
+    
+    if not all([name, phone_number, region_id]):
+        return jsonify({'error': 'Nome, número de telefone e região são obrigatórios'}), 400
+    
+    success, message, user_id = data_persistence.register_user(name, phone_number, region_id)
+    
+    if success:
+        return jsonify({
+            'message': message,
+            'user_id': user_id,
+            'name': name,
+            'phone_number': phone_number.replace(' ', '') if not phone_number.startswith('+258') else phone_number,
+            'region_id': region_id
+        }), 201
+    else:
+        return jsonify({'error': message}), 400
+
+@app.route('/api/subscriptions', methods=['POST'])
+def create_subscription():
+    """
+    Subscribe to a project
+    ---
+    parameters:
+      - name: body
+        in: body
+        required: true
+        schema:
+          type: object
+          required:
+            - user_id
+            - project_id
+          properties:
+            user_id:
+              type: integer
+              description: User ID
+            project_id:
+              type: string
+              description: Project ID
+    responses:
+      201:
+        description: Subscription created successfully
+      400:
+        description: Validation error
+    """
+    data = request.get_json()
+    
+    if not data:
+        return jsonify({'error': 'Dados não fornecidos'}), 400
+    
+    user_id = data.get('user_id')
+    project_id = data.get('project_id')
+    
+    if not all([user_id, project_id]):
+        return jsonify({'error': 'user_id e project_id são obrigatórios'}), 400
+    
+    success, message, subscription_id = data_persistence.subscribe_to_project(user_id, project_id)
+    
+    if success:
+        return jsonify({
+            'message': message,
+            'subscription_id': subscription_id,
+            'user_id': user_id,
+            'project_id': project_id
+        }), 201
+    else:
+        return jsonify({'error': message}), 400
+
+@app.route('/api/subscriptions', methods=['DELETE'])
+def delete_subscription():
+    """
+    Unsubscribe from a project
+    ---
+    parameters:
+      - name: body
+        in: body
+        required: true
+        schema:
+          type: object
+          required:
+            - user_id
+            - project_id
+          properties:
+            user_id:
+              type: integer
+            project_id:
+              type: string
+    responses:
+      200:
+        description: Unsubscribed successfully
+      400:
+        description: Error
+    """
+    data = request.get_json()
+    
+    if not data:
+        return jsonify({'error': 'Dados não fornecidos'}), 400
+    
+    user_id = data.get('user_id')
+    project_id = data.get('project_id')
+    
+    if not all([user_id, project_id]):
+        return jsonify({'error': 'user_id e project_id são obrigatórios'}), 400
+    
+    success, message = data_persistence.unsubscribe_from_project(user_id, project_id)
+    
+    if success:
+        return jsonify({'message': message}), 200
+    else:
+        return jsonify({'error': message}), 400
+
+@app.route('/api/subscriptions/user/<int:user_id>', methods=['GET'])
+def get_user_subscriptions(user_id):
+    """
+    Get user's subscriptions
+    ---
+    parameters:
+      - name: user_id
+        in: path
+        type: integer
+        required: true
+    responses:
+      200:
+        description: List of subscriptions
+    """
+    subscriptions = data_persistence.get_user_subscriptions(user_id)
+    return jsonify(subscriptions)
+
+if __name__ == '__main__':
+    app.run(debug=True, host='0.0.0.0', port=5001)
