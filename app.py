@@ -173,6 +173,11 @@ def create_subscription():
             project_id:
               type: string
               description: Project ID
+            notification_channel:
+              type: string
+              description: Notification channel (sms or wpp)
+              enum: [sms, wpp]
+              default: sms
     responses:
       201:
         description: Subscription created successfully
@@ -186,18 +191,20 @@ def create_subscription():
     
     user_id = data.get('user_id')
     project_id = data.get('project_id')
+    notification_channel = data.get('notification_channel', 'sms')
     
     if not all([user_id, project_id]):
         return jsonify({'error': 'user_id e project_id são obrigatórios'}), 400
     
-    success, message, subscription_id = data_persistence.subscribe_to_project(user_id, project_id)
+    success, message, subscription_id = data_persistence.subscribe_to_project(user_id, project_id, notification_channel)
     
     if success:
         return jsonify({
             'message': message,
             'subscription_id': subscription_id,
             'user_id': user_id,
-            'project_id': project_id
+            'project_id': project_id,
+            'notification_channel': notification_channel
         }), 201
     else:
         return jsonify({'error': message}), 400
@@ -261,6 +268,55 @@ def get_user_subscriptions(user_id):
     """
     subscriptions = data_persistence.get_user_subscriptions(user_id)
     return jsonify(subscriptions)
+
+@app.route('/api/messages/send-bulk', methods=['POST'])
+def send_bulk_messages():
+    """
+    Send bulk SMS messages
+    ---
+    parameters:
+      - name: body
+        in: body
+        required: true
+        schema:
+          type: object
+          required:
+            - message
+            - phone_numbers
+          properties:
+            message:
+              type: string
+              description: Message content
+            phone_numbers:
+              type: array
+              items:
+                type: string
+              description: List of phone numbers
+    responses:
+      200:
+        description: Bulk send results
+      400:
+        description: Validation error
+    """
+    import messaging
+    
+    data = request.get_json()
+    
+    if not data:
+        return jsonify({'error': 'Dados não fornecidos'}), 400
+    
+    message = data.get('message')
+    phone_numbers = data.get('phone_numbers')
+    
+    if not message or not phone_numbers:
+        return jsonify({'error': 'message e phone_numbers são obrigatórios'}), 400
+    
+    if not isinstance(phone_numbers, list):
+        return jsonify({'error': 'phone_numbers deve ser uma lista'}), 400
+    
+    results = messaging.send_bulk_sms(message, phone_numbers)
+    
+    return jsonify(results), 200
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5001)

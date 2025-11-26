@@ -8,15 +8,29 @@ def insert_or_update_project(project_id, data):
     conn = get_db_connection()
     cursor = conn.cursor()
     
-    project_name = data.get('name', 'Unknown')
+    # Use 'title' as per OC4IDS standard, fallback to 'name' for compatibility
+    project_name = data.get('title') or data.get('name', 'Unknown')
     status = data.get('status', 'Unknown')
     data_raw = json.dumps(data)
     last_sync = datetime.now()
 
-    cursor.execute('''
-        INSERT OR REPLACE INTO projects (project_id, project_name, status, data_raw, last_sync)
-        VALUES (?, ?, ?, ?, ?)
-    ''', (project_id, project_name, status, data_raw, last_sync))
+    # Check if project exists
+    cursor.execute('SELECT project_id FROM projects WHERE project_id = ?', (project_id,))
+    exists = cursor.fetchone()
+    
+    if exists:
+        # Update existing project, preserving transparency scores
+        cursor.execute('''
+            UPDATE projects 
+            SET project_name = ?, status = ?, data_raw = ?, last_sync = ?
+            WHERE project_id = ?
+        ''', (project_name, status, data_raw, last_sync, project_id))
+    else:
+        # Insert new project
+        cursor.execute('''
+            INSERT INTO projects (project_id, project_name, status, data_raw, last_sync)
+            VALUES (?, ?, ?, ?, ?)
+        ''', (project_id, project_name, status, data_raw, last_sync))
     
     conn.commit()
     conn.close()
@@ -180,19 +194,23 @@ def get_user_by_phone(phone_number):
     
     return dict(row) if row else None
 
-def subscribe_to_project(user_id, project_id):
+def subscribe_to_project(user_id, project_id, notification_channel='sms'):
     """
     Subscribes a user to a project.
     Returns: (success: bool, message: str, subscription_id: int or None)
     """
+    # Validate notification channel
+    if notification_channel not in ['sms', 'wpp']:
+        return False, "Canal de notificação inválido. Use 'sms' ou 'wpp'.", None
+    
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
         
         cursor.execute('''
-            INSERT INTO subscriptions (user_id, project_id)
-            VALUES (?, ?)
-        ''', (user_id, project_id))
+            INSERT INTO subscriptions (user_id, project_id, notification_channel)
+            VALUES (?, ?, ?)
+        ''', (user_id, project_id, notification_channel))
         
         subscription_id = cursor.lastrowid
         conn.commit()
@@ -236,7 +254,7 @@ def get_user_subscriptions(user_id):
     
     cursor.execute('''
         SELECT s.subscription_id, s.user_id, s.project_id, s.subscribed_at, s.notification_enabled,
-               p.project_name, p.status, p.transparency_score, p.alert_color
+               s.notification_channel, p.project_name, p.status, p.transparency_score, p.alert_color
         FROM subscriptions s
         JOIN projects p ON s.project_id = p.project_id
         WHERE s.user_id = ?
