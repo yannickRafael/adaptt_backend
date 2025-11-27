@@ -1,10 +1,13 @@
 from flask import Flask, jsonify, request
 from flasgger import Swagger
+from flask_cors import CORS
 import data_persistence
 import logging
 import os
 
 app = Flask(__name__)
+# Enable CORS for all domains on all routes
+CORS(app, resources={r"/*": {"origins": "*"}})
 swagger = Swagger(app)
 
 @app.route('/api/projects', methods=['GET'])
