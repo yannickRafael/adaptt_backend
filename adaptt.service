@@ -1,0 +1,22 @@
+[Unit]
+Description=ADAPTT Backend Gunicorn Service
+After=network.target
+
+[Service]
+Type=notify
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/home/ubuntu/adaptt_backend
+Environment="PATH=/home/ubuntu/adaptt_backend/venv/bin"
+ExecStart=/home/ubuntu/adaptt_backend/venv/bin/gunicorn \
+    --config /home/ubuntu/adaptt_backend/gunicorn_config.py \
+    app:app
+ExecReload=/bin/kill -s HUP $MAINPID
+KillMode=mixed
+TimeoutStopSec=5
+PrivateTmp=true
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
