@@ -1,6 +1,7 @@
 from flask import Flask, jsonify, request
 from flasgger import Swagger
 import data_persistence
+import logging
 import os
 
 app = Flask(__name__)
@@ -317,6 +318,78 @@ def send_bulk_messages():
     results = messaging.send_bulk_sms(message, phone_numbers)
     
     return jsonify(results), 200
+
+@app.route('/webhook/sms', methods=['POST'])
+def webhook_sms():
+    """
+    Twilio SMS webhook endpoint
+    ---
+    parameters:
+      - name: From
+        in: formData
+        type: string
+        description: Sender phone number
+      - name: Body
+        in: formData
+        type: string
+        description: Message body
+    responses:
+      200:
+        description: TwiML response
+    """
+    from command_handler import command_handler
+    from twilio.twiml.messaging_response import MessagingResponse
+    
+    # Get message details
+    from_number = request.form.get('From', '')
+    message_body = request.form.get('Body', '')
+    
+    logging.info(f"SMS received from {from_number}: {message_body}")
+    
+    # Process command
+    response_text = command_handler.process_message(from_number, message_body, channel='sms')
+    
+    # Create TwiML response
+    resp = MessagingResponse()
+    resp.message(response_text)
+    
+    return str(resp), 200, {'Content-Type': 'text/xml'}
+
+@app.route('/webhook/whatsapp', methods=['POST'])
+def webhook_whatsapp():
+    """
+    Twilio WhatsApp webhook endpoint
+    ---
+    parameters:
+      - name: From
+        in: formData
+        type: string
+        description: Sender phone number (whatsapp:+...)
+      - name: Body
+        in: formData
+        type: string
+        description: Message body
+    responses:
+      200:
+        description: TwiML response
+    """
+    from command_handler import command_handler
+    from twilio.twiml.messaging_response import MessagingResponse
+    
+    # Get message details
+    from_number = request.form.get('From', '').replace('whatsapp:', '')
+    message_body = request.form.get('Body', '')
+    
+    logging.info(f"WhatsApp received from {from_number}: {message_body}")
+    
+    # Process command
+    response_text = command_handler.process_message(from_number, message_body, channel='wpp')
+    
+    # Create TwiML response
+    resp = MessagingResponse()
+    resp.message(response_text)
+    
+    return str(resp), 200, {'Content-Type': 'text/xml'}
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5001)
