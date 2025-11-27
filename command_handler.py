@@ -54,31 +54,31 @@ class CommandHandler:
             # Parse: REGISTRAR João Silva maputo
             match = re.match(r'^(.+?)\s+(\S+)$', args, re.IGNORECASE)
             if not match:
-                return "❌ Formato incorreto. Use: REGISTRAR [Nome Completo] [Região]\nExemplo: REGISTRAR João Silva maputo"
+                return "Formato incorreto. Use: REGISTRAR [Nome Completo] [Região]\nExemplo: REGISTRAR João Silva maputo"
             
             name = match.group(1).strip()
             region_id = match.group(2).strip().lower()
             
             # Validate region
             if not data_persistence.region_exists(region_id):
-                return f"❌ Região '{region_id}' não existe. Use: maputo, gaza, inhambane, sofala, manica, tete, zambezia, nampula, cabo-delgado, niassa, maputo-city"
+                return f"Região '{region_id}' não existe. Use: maputo, gaza, inhambane, sofala, manica, tete, zambezia, nampula, cabo-delgado, niassa, maputo-city"
             
             # Check if user already exists
             existing = data_persistence.get_user_by_phone(phone_number)
             if existing:
-                return f"ℹ️ Você já está registrado como '{existing['name']}'. Use LISTAR para ver projetos."
+                return f"Você já está registrado como '{existing['name']}'. Use LISTAR para ver projetos."
             
             # Register user
             success, message, user_id = data_persistence.register_user(name, phone_number, region_id)
             
             if success:
-                return f"✅ Bem-vindo, {name}! Conta criada com sucesso.\n\nEnvie LISTAR para ver projetos disponíveis."
+                return f"Bem-vindo, {name}! Conta criada com sucesso.\n\nEnvie LISTAR para ver projetos disponíveis."
             else:
-                return f"❌ {message}"
+                return f"Erro: {message}"
         
         except Exception as e:
             logging.error(f"Error in handle_registrar: {e}")
-            return "❌ Erro ao registrar. Verifique o formato e tente novamente."
+            return "Erro ao registrar. Verifique o formato e tente novamente."
     
     def handle_listar(self, phone_number, args, channel):
         """Handle LISTAR"""
@@ -86,16 +86,16 @@ class CommandHandler:
             # Check if user exists
             user = data_persistence.get_user_by_phone(phone_number)
             if not user:
-                return "❌ Você precisa se registrar primeiro. Use: REGISTRAR [Nome] [Região]"
+                return "Você precisa se registrar primeiro. Use: REGISTRAR [Nome] [Região]"
             
             # Get projects
             projects = data_persistence.get_all_projects()
             
             if not projects:
-                return "ℹ️ Nenhum projeto disponível no momento."
+                return "Nenhum projeto disponível no momento."
             
             # Format response (limit to 5 projects)
-            response = "📋 PROJETOS DISPONÍVEIS:\n\n"
+            response = "PROJETOS DISPONÍVEIS:\n\n"
             for i, project in enumerate(projects[:5], 1):
                 score = project.get('transparency_score', 'N/A')
                 alert = project.get('alert_color', 'N/A')
@@ -111,7 +111,7 @@ class CommandHandler:
         
         except Exception as e:
             logging.error(f"Error in handle_listar: {e}")
-            return "❌ Erro ao listar projetos."
+            return "Erro ao listar projetos."
     
     def handle_subscrever(self, phone_number, args, channel):
         """Handle SUBSCREVER [ID_Projeto] [sms|wpp]"""
@@ -119,12 +119,12 @@ class CommandHandler:
             # Check if user exists
             user = data_persistence.get_user_by_phone(phone_number)
             if not user:
-                return "❌ Você precisa se registrar primeiro. Use: REGISTRAR [Nome] [Região]"
+                return "Você precisa se registrar primeiro. Use: REGISTRAR [Nome] [Região]"
             
             # Parse arguments
             parts = args.split()
             if not parts:
-                return "❌ Formato incorreto. Use: SUBSCREVER [ID_Projeto] [sms|wpp]\nExemplo: SUBSCREVER abc123 wpp"
+                return "Formato incorreto. Use: SUBSCREVER [ID_Projeto] [sms|wpp]\nExemplo: SUBSCREVER abc123 wpp"
             
             project_id = parts[0]
             notification_channel = parts[1].lower() if len(parts) > 1 else channel
@@ -140,13 +140,13 @@ class CommandHandler:
             
             if success:
                 channel_name = "WhatsApp" if notification_channel == 'wpp' else "SMS"
-                return f"✅ Subscrito com sucesso!\n\nVocê receberá alertas por {channel_name} sobre mudanças no projeto."
+                return f"Subscrito com sucesso!\n\nVocê receberá alertas por {channel_name} sobre mudanças no projeto."
             else:
-                return f"❌ {message}"
+                return f"Erro: {message}"
         
         except Exception as e:
             logging.error(f"Error in handle_subscrever: {e}")
-            return "❌ Erro ao subscrever."
+            return "Erro ao subscrever."
     
     def handle_cancelar(self, phone_number, args, channel):
         """Handle CANCELAR [ID_Projeto]"""
@@ -154,28 +154,28 @@ class CommandHandler:
             # Check if user exists
             user = data_persistence.get_user_by_phone(phone_number)
             if not user:
-                return "❌ Você precisa se registrar primeiro."
+                return "Você precisa se registrar primeiro."
             
             # Parse project ID
             project_id = args.strip()
             if not project_id:
-                return "❌ Formato incorreto. Use: CANCELAR [ID_Projeto]\nExemplo: CANCELAR abc123"
+                return "Formato incorreto. Use: CANCELAR [ID_Projeto]\nExemplo: CANCELAR abc123"
             
             # Unsubscribe
             success, message = data_persistence.unsubscribe_from_project(user['user_id'], project_id)
             
             if success:
-                return f"✅ {message}"
+                return f"{message}"
             else:
-                return f"❌ {message}"
+                return f"Erro: {message}"
         
         except Exception as e:
             logging.error(f"Error in handle_cancelar: {e}")
-            return "❌ Erro ao cancelar subscrição."
+            return "Erro ao cancelar subscrição."
     
     def handle_ajuda(self, phone_number=None, args=None, channel=None):
         """Handle AJUDA"""
-        return """📱 COMANDOS ADAPTT
+        return """COMANDOS ADAPTT
 
 REGISTRAR [Nome] [Região]
   Criar conta
@@ -195,7 +195,7 @@ CANCELAR [ID]
 AJUDA
   Mostrar esta mensagem
 
-ℹ️ Regiões: maputo, gaza, inhambane, sofala, manica, tete, zambezia, nampula, cabo-delgado, niassa, maputo-city"""
+Regiões: maputo, gaza, inhambane, sofala, manica, tete, zambezia, nampula, cabo-delgado, niassa, maputo-city"""
 
 # Global handler instance
 command_handler = CommandHandler()
