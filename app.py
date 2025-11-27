@@ -353,7 +353,7 @@ def webhook_sms():
     resp = MessagingResponse()
     resp.message(response_text)
     
-    return str(resp), 200, {'Content-Type': 'text/xml'}
+    return str(resp), 200, {'Content-Type': 'application/xml'}
 
 @app.route('/webhook/whatsapp', methods=['POST'])
 def webhook_whatsapp():
@@ -389,7 +389,7 @@ def webhook_whatsapp():
     resp = MessagingResponse()
     resp.message(response_text)
     
-    return str(resp), 200, {'Content-Type': 'text/xml'}
+    return str(resp), 200, {'Content-Type': 'application/xml'}
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5001)
