@@ -78,6 +78,20 @@ def initialize_db():
         )
     ''')
 
+    # Create project audit table
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS project_audit (
+            audit_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            project_id TEXT NOT NULL,
+            event_type TEXT NOT NULL,
+            old_date TEXT,
+            new_date TEXT,
+            detected_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            notified INTEGER DEFAULT 0,
+            FOREIGN KEY (project_id) REFERENCES projects (project_id)
+        )
+    ''')
+
     conn.commit()
     conn.close()
     print(f"Database {DB_NAME} initialized successfully.")

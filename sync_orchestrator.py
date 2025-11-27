@@ -2,6 +2,7 @@ import api_fetcher
 import data_persistence
 import db_manager
 import score_calculator
+import deadline_monitor
 import logging
 
 # Configure logging
@@ -42,16 +43,26 @@ def run_full_sync():
     projects = api_fetcher.fetch_public_projects()
     logging.info(f"Found {len(projects)} projects.")
 
+    # 2. Sync each project
     for project in projects:
         project_id = project.get('id')
         if not project_id:
-            logging.warning("Project found without ID. Skipping.")
+            logging.warning("Project missing 'id' field, skipping.")
             continue
 
         logging.info(f"Syncing Project {project_id}...")
         
-        # 2. Save project data
+        # Get old data for comparison
+        old_data = data_persistence.get_raw_project_data(project_id)
+        
+        # Update project data
         data_persistence.insert_or_update_project(project_id, project)
+        
+        # Detect deadline changes
+        if old_data:
+            events = deadline_monitor.detect_deadline_changes(project_id, project, old_data)
+            for event in events:
+                deadline_monitor.log_audit_event(event)
         
         # 3. Save document status
         documents = []
